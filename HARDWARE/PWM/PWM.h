@@ -3,17 +3,18 @@
 
 #include "stm32f10x.h"
 
-// 初始化舵机（PWM和初始角度）
-void Servo_Init(void);
+// PWM周期最大值，ARR=39，对应100%
+#define PWM_MAX_CCR    39U
 
-// 设置水平角度（0~270°）
-void Servo_SetAngle_H(float angle_deg);
+// 通道枚举，增强可读性
+typedef enum
+{
+    FAN_CH1 = 1,  // TIM2_CH1 风扇1
+    FAN_CH2 = 2   // TIM2_CH2 风扇2
+}FanChannel_t;
 
-// 设置垂直角度（0~180°）
-void Servo_SetAngle_V(float angle_deg);
+void Fan_Init(void);
+void Fan_SetSpeed(FanChannel_t ch, uint8_t percent);
 
-// 当前角度（供外部读取或修改）
-extern float current_angle_h;
-extern float current_angle_v;
 
 #endif

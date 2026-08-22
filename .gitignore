@@ -313,10 +313,10 @@ $RECYCLE.BIN/
 DebugConfig/
 *.htm
 *.dep
-/Objects/
+/Objects/*
 /Listings/
 *.bat
-/OBJ/
+OBJ/*
 *.txt
 
 # --- OS/IDE Supplemental ---

@@ -12,20 +12,21 @@ volatile uint8_t g_led_enabled = 0;
 volatile uint8_t g_auto_run = 0;
 volatile uint8_t g_auto_back = 0;
 volatile uint8_t g_auto_arrived = 0;
+volatile uint8_t g_mode = 0;
 volatile uint8_t g_car_state = CAR_STOP;
 uint8_t g_rx_buffer[BT_RX_BUF_SIZE];
 uint8_t g_rx_index = 0;
 uint8_t g_frame_ready = 0;  // 帧接收完成标志
-extern volatile uint32_t g_rx_timeout; 
 
-float current_weight = 0.0f;
-static uint32_t last_weight_check_time = 0;
-static uint32_t weight_below_start_time = 0;
-static uint8_t is_auto_moving = 0;
-static uint32_t auto_move_start_time = 0;
+//float current_weight = 0.0f;
+//static uint32_t last_weight_check_time = 0;
+//static uint32_t weight_below_start_time = 0;
+//static uint8_t is_auto_moving = 0;
+//static uint32_t auto_move_start_time = 0;
 
 volatile ReturnState_t g_return_state = RETURN_IDLE;
 volatile uint8_t turn_direction;
+volatile uint32_t g_rx_timeout;
 
 /************************************************
 *
@@ -147,7 +148,7 @@ void USART3_IRQHandler(void)
         // 简单的循环缓冲区，防止溢出
         if (g_rx_index < BT_RX_BUF_SIZE) {
             g_rx_buffer[g_rx_index++] = data;
-			g_rx_timeout = 0;
+			g_rx_timeout = get_tick();
         }
         
         USART_ClearITPendingBit(USART3, USART_IT_RXNE);
@@ -224,32 +225,13 @@ static void ExecuteCommand(uint8_t cmd, uint8_t *data, uint8_t data_len)
         case CMD_STOP:
             g_car_state = CAR_STOP;
             break;
-		case CMD_CRUISE_TOGGLE:
+		case CMD_MODESWITCH:
             if (data_len == 1) {
-                g_cruise_enabled = data[0] ? 1 : 0;
+                g_mode = data[0] ? 1 : 0;
 			}
             break;
-        case CMD_SET_THRESHOLD:
-            if (data_len == 4) {
-                // 小端模式解析浮点数
-                float val = *((float*)data);
-                g_threshold = val;
-            }
-            break;
-        case CMD_LED:
-            // 紫外线开关
-			if (data_len == 1) {
-                g_led_enabled = data[0] ? 1 : 0;
-            }
-            break;
-		case CMD_AUTO_RUN:
-            // 紫外线开关
-			if (data_len == 1) {
-                g_auto_run = data[0] ? 1 : 0;
-            }
-            break;
         default:
-            //BT_SendString("CMD:Unknown\r\n");
+            BT_SendString("CMD:Unknown\r\n");
             break;
     }
 }
@@ -265,7 +247,7 @@ void BT_ProcessReceivedData(void)
     uint8_t data[16];
     uint8_t data_len;
     
-    if (g_rx_index > 0 && g_rx_timeout >= RX_TIMEOUT_MS)
+    if (g_rx_index > 0 && get_tick() - g_rx_timeout >= RX_TIMEOUT_MS)
 	{
 		// 尝试解析帧
 		if (ParseFrame(g_rx_buffer, g_rx_index, &cmd, data, &data_len)) {
@@ -279,7 +261,6 @@ void BT_ProcessReceivedData(void)
 		}
 		g_rx_index = 0;
         memset((uint8_t*)g_rx_buffer, 0, BT_RX_BUF_SIZE);
-        g_rx_timeout = 0;   // 复位超时计数器
 	}
 }
 
@@ -289,75 +270,75 @@ void BT_ProcessReceivedData(void)
 * 每5秒获取一下重量数， 每15秒与阈值进行比较.
 *
 ************************************************/
-void Weight_Monitor(void)
-{
-    uint32_t tick = get_tick();
-    static uint8_t last_alert_sent = 0;
+// void Weight_Monitor(void)
+// {
+//     uint32_t tick = get_tick();
+//     static uint8_t last_alert_sent = 0;
 
-    if (tick - last_weight_check_time >= 3000) {
-        last_weight_check_time = tick;
-        current_weight = Get_Weight();
-        BT_SendFrame(CMD_SEND_THRESHOLD, (uint8_t *)&current_weight, 4);
+//     if (tick - last_weight_check_time >= 3000) {
+//         last_weight_check_time = tick;
+//         current_weight = Get_Weight();
+//         BT_SendFrame(CMD_SEND_THRESHOLD, (uint8_t *)&current_weight, 4);
 
-        // ===== 超重检测（最高优先级） =====
-        if (current_weight >= g_threshold) {
-            // 1. 如果正在自动移动，立即中断并停车
-            if (is_auto_moving) {
-                is_auto_moving = 0;
-                g_car_state = CAR_STOP;
-            }
-            weight_below_start_time = 0;
+//         // ===== 超重检测（最高优先级） =====
+//         if (current_weight >= g_threshold) {
+//             // 1. 如果正在自动移动，立即中断并停车
+//             if (is_auto_moving) {
+//                 is_auto_moving = 0;
+//                 g_car_state = CAR_STOP;
+//             }
+//             weight_below_start_time = 0;
 
-            // 2. 发送超重标志（仅一次）
-            if (!last_alert_sent) {
-                BT_SendFrame(CMD_SEND_FLAG, NULL, 0);
-                last_alert_sent = 1;
-            }
+//             // 2. 发送超重标志（仅一次）
+//             if (!last_alert_sent) {
+//                 BT_SendFrame(CMD_SEND_FLAG, NULL, 0);
+//                 last_alert_sent = 1;
+//             }
 
-			// ★★★ 触发返航的条件 ★★★
-            // 只要当前状态是“空闲”，立即触发返航
-            if (g_return_state == RETURN_IDLE) {
-                g_return_state = RETURN_BACKING;  // 切换为返航中
-            }
-        } 
-        else { // 重量低于阈值
-            // 清除超重标志，以便下次超重再发送
-            last_alert_sent = 0;
+// 			// ★★★ 触发返航的条件 ★★★
+//             // 只要当前状态是“空闲”，立即触发返航
+//             if (g_return_state == RETURN_IDLE) {
+//                 g_return_state = RETURN_BACKING;  // 切换为返航中
+//             }
+//         } 
+//         else { // 重量低于阈值
+//             // 清除超重标志，以便下次超重再发送
+//             last_alert_sent = 0;
 
-            // 如果当前正在返航或已到达，则立即停止并重置状态
-            if (g_return_state != RETURN_IDLE) {
-                g_return_state = RETURN_IDLE;
-                g_car_state = CAR_STOP;
-                turn_direction = 0;   // 清除转向保持
-                // 可选：发送状态信息
-                // BT_SendString("Return cancelled\r\n");
-            }
+//             // 如果当前正在返航或已到达，则立即停止并重置状态
+//             if (g_return_state != RETURN_IDLE) {
+//                 g_return_state = RETURN_IDLE;
+//                 g_car_state = CAR_STOP;
+//                 turn_direction = 0;   // 清除转向保持
+//                 // 可选：发送状态信息
+//                 // BT_SendString("Return cancelled\r\n");
+//             }
 
-            // ===== 自动移动功能（仅当 g_auto_run 开启） =====
-            if (g_auto_run) {
-                if (weight_below_start_time == 0) {
-                    weight_below_start_time = tick;
-                } else if (tick - weight_below_start_time >= 15000 && !is_auto_moving) {
-                    is_auto_moving = 1;
-                    auto_move_start_time = tick;
-                    g_car_state = CAR_FORWARD;
-                }
-            } else {
-                weight_below_start_time = 0;
-                if (is_auto_moving) {
-                    is_auto_moving = 0;
-                    g_car_state = CAR_STOP;
-                }
-            }
-        }
-    }
+//             // ===== 自动移动功能（仅当 g_auto_run 开启） =====
+//             if (g_auto_run) {
+//                 if (weight_below_start_time == 0) {
+//                     weight_below_start_time = tick;
+//                 } else if (tick - weight_below_start_time >= 15000 && !is_auto_moving) {
+//                     is_auto_moving = 1;
+//                     auto_move_start_time = tick;
+//                     g_car_state = CAR_FORWARD;
+//                 }
+//             } else {
+//                 weight_below_start_time = 0;
+//                 if (is_auto_moving) {
+//                     is_auto_moving = 0;
+//                     g_car_state = CAR_STOP;
+//                 }
+//             }
+//         }
+//     }
 
-    // ===== 自动移动执行（前进1秒后停止） =====
-    if (is_auto_moving) {
-        if (tick - auto_move_start_time >= 1000) {
-            is_auto_moving = 0;
-            g_car_state = CAR_STOP;
-            weight_below_start_time = tick;
-        }
-    }
-}
+//     // ===== 自动移动执行（前进1秒后停止） =====
+//     if (is_auto_moving) {
+//         if (tick - auto_move_start_time >= 1000) {
+//             is_auto_moving = 0;
+//             g_car_state = CAR_STOP;
+//             weight_below_start_time = tick;
+//         }
+//     }
+// }

@@ -16,9 +16,6 @@ typedef struct
     float cy;
     int w;
     int h;
-    float score;
-
-
 }Object_t;
 
 // ´®¿Ú³õÊ¼»¯£¨USART1£©

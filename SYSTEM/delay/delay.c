@@ -188,67 +188,85 @@ void delay_ms(u16 nms)
 #endif 
 
 
-// 全局超时计数器（供外部使用）
-volatile uint32_t g_rx_timeout = 0;
-uint32_t tick = 0;
+// // 全局超时计数器（供外部使用）
+// volatile uint32_t g_rx_timeout = 0;
+// uint32_t tick = 0;
 
-/**
-  * @brief  配置 TIM2 为 1ms 中断（72MHz 系统时钟下）
-  * @param  无
-  * @retval 无
-  */
-void TIM2_Init(void)
+// /**
+//   * @brief  配置 TIM2 为 1ms 中断（72MHz 系统时钟下）
+//   * @param  无
+//   * @retval 无
+//   */
+// void TIM2_Init(void)
+// {
+//     TIM_TimeBaseInitTypeDef TIM_TimeBaseStruct;
+//     NVIC_InitTypeDef NVIC_InitStruct;
+
+//     // 1. 使能 TIM2 时钟（APB1 总线）
+//     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+
+//     // 2. 定时器基础配置
+//     //    系统时钟 72MHz，APB1 预分频器为 2，TIM2 时钟 = 72MHz
+//     //    预分频器 (PSC) = 72-1 => 计数频率 = 1MHz (1us 计数一次)
+//     //    自动重装载值 (ARR) = 1000-1 => 计数 1000 次产生中断 => 1ms
+//     TIM_TimeBaseStruct.TIM_Period = 1000 - 1;         // 自动重装载值
+//     TIM_TimeBaseStruct.TIM_Prescaler = 72 - 1;        // 预分频器
+//     TIM_TimeBaseStruct.TIM_ClockDivision = TIM_CKD_DIV1;
+//     TIM_TimeBaseStruct.TIM_CounterMode = TIM_CounterMode_Up;
+//     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStruct);
+
+//     // 3. 允许更新中断
+//     TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
+
+//     // 4. 使能 TIM2
+//     TIM_Cmd(TIM2, ENABLE);
+
+//     // 5. 中断优先级设置（根据需要调整抢占优先级）
+//     NVIC_InitStruct.NVIC_IRQChannel = TIM2_IRQn;
+//     NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 2;  // 比串口中断低一点（串口设为1）
+//     NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
+//     NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+//     NVIC_Init(&NVIC_InitStruct);
+// }
+
+// /**
+//   * @brief  TIM2 中断服务函数（1ms 调用一次）
+//   */
+// void TIM2_IRQHandler(void)
+// {
+//     if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {
+//         TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+//         // 每毫秒递增超时计数器
+//         g_rx_timeout++;
+// 		tick++;
+//     }
+// }
+
+
+volatile uint32_t g_systick = 0;
+
+// 配置1ms SysTick中断
+void SysTick_Init(void)
 {
-    TIM_TimeBaseInitTypeDef TIM_TimeBaseStruct;
-    NVIC_InitTypeDef NVIC_InitStruct;
-
-    // 1. 使能 TIM2 时钟（APB1 总线）
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-
-    // 2. 定时器基础配置
-    //    系统时钟 72MHz，APB1 预分频器为 2，TIM2 时钟 = 72MHz
-    //    预分频器 (PSC) = 72-1 => 计数频率 = 1MHz (1us 计数一次)
-    //    自动重装载值 (ARR) = 1000-1 => 计数 1000 次产生中断 => 1ms
-    TIM_TimeBaseStruct.TIM_Period = 1000 - 1;         // 自动重装载值
-    TIM_TimeBaseStruct.TIM_Prescaler = 72 - 1;        // 预分频器
-    TIM_TimeBaseStruct.TIM_ClockDivision = TIM_CKD_DIV1;
-    TIM_TimeBaseStruct.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStruct);
-
-    // 3. 允许更新中断
-    TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
-
-    // 4. 使能 TIM2
-    TIM_Cmd(TIM2, ENABLE);
-
-    // 5. 中断优先级设置（根据需要调整抢占优先级）
-    NVIC_InitStruct.NVIC_IRQChannel = TIM2_IRQn;
-    NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 2;  // 比串口中断低一点（串口设为1）
-    NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
-    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStruct);
-}
-
-/**
-  * @brief  TIM2 中断服务函数（1ms 调用一次）
-  */
-void TIM2_IRQHandler(void)
-{
-    if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET) {
-        TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-        // 每毫秒递增超时计数器
-        g_rx_timeout++;
-		tick++;
+    // 参数：72000 代表1ms中断，使用HCLK不分频
+    if(SysTick_Config(SystemCoreClock/1000U))
+    {
+        // 初始化失败，SysTick寄存器位数不足，这里不会触发
+        while(1);
     }
+    // SysTick_Config内部自动开启中断、计数器
 }
 
-//获取当前时间戳
+void SysTick_Increment(void)
+{
+	g_systick++;
+}
+
+// //获取当前时间戳
 uint32_t get_tick(void)
 {
-	return tick;
+	return g_systick;
 }
-
-
 
 
 

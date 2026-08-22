@@ -9,7 +9,7 @@
 ************************************************/
 #define FRAME_HEADER        0xAA
 #define FRAME_TAIL          0x55
-#define BT_RX_BUF_SIZE         64
+#define BT_RX_BUF_SIZE      64
 #define RX_TIMEOUT_MS       100
 
 /************************************************
@@ -22,12 +22,10 @@ typedef enum {
     CMD_LEFT = 3,            // 左转
     CMD_RIGHT = 4,           // 右转
     CMD_STOP = 5,            // 停止
-    CMD_CRUISE_TOGGLE = 6,   // 自动巡航开关（带1字节：0关1开）
-    CMD_SET_THRESHOLD = 7,   // 设置阈值（带4字节float数据）
-    CMD_LED = 8, 		     // 紫外线开关
-    CMD_AUTO_RUN = 9, 	     // 自动移动
-	CMD_SEND_THRESHOLD = 10, // 阈值上报
-	CMD_SEND_FLAG = 11		 // 超重标志位上报
+    CMD_LEFTSHIFT = 6,       // 左移
+    CMD_RIGHTSHIFT = 7,      // 右移
+    CMD_MODESWITCH = 8, 	 // 模式切换
+    CMD_BALLCOUNTS = 9,
 } Command_t;
 
 #define CAR_STOP             0
@@ -49,7 +47,7 @@ typedef enum {
 ************************************************/
 volatile extern float g_threshold;           		 // 当前阈值
 volatile extern uint8_t g_cruise_enabled;    		 // 巡航开关
-volatile extern uint8_t g_led_enabled;				 // 紫外线开关
+volatile extern uint8_t g_mode;				         // 模式
 volatile extern uint8_t g_auto_run;					 // 自动移动
 volatile extern uint8_t g_auto_back;				 // 自动返航
 volatile extern uint8_t g_auto_arrived;				 // 返航完成
@@ -66,6 +64,6 @@ void Usart3_Init(uint32_t baud);
 void BT_SendString(char *str);
 void BT_SendFrame(uint8_t cmd, uint8_t *data, uint8_t data_len);
 void BT_ProcessReceivedData(void); 
-void Weight_Monitor(void);
+// void Weight_Monitor(void);
 
 #endif

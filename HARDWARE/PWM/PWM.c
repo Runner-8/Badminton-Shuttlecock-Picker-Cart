@@ -1,17 +1,5 @@
 #include "PWM.h"
 
-// 舵机参数
-#define PULSE_MIN       500
-#define PULSE_MAX       2500
-#define ANGLE_MAX_H     270.0f
-#define ANGLE_MAX_V     180.0f
-#define PULSE_PER_DEG_H ((PULSE_MAX - PULSE_MIN) / ANGLE_MAX_H)  // 7.407
-#define PULSE_PER_DEG_V ((PULSE_MAX - PULSE_MIN) / ANGLE_MAX_V)  // 11.111
-
-// 全局变量（存储当前角度）
-float current_angle_h = 135.0f;
-float current_angle_v = 125.0f;
-
 // ===================== PWM初始化 =====================
 void PWM_Init(u32 arr, u32 psc)
 {
@@ -19,22 +7,22 @@ void PWM_Init(u32 arr, u32 psc)
     TIM_OCInitTypeDef TIM_OCInitStructure;
     GPIO_InitTypeDef GPIO_InitStructure;
 
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
 
-    // PA6 -> CH1 (垂直), PA7 -> CH2 (水平)
+    // PA0 -> CH1 , PA1 -> CH2 
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 
-    TIM_InternalClockConfig(TIM3);
+    TIM_InternalClockConfig(TIM2);
     TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
     TIM_TimeBaseInitStructure.TIM_Period = arr - 1;
     TIM_TimeBaseInitStructure.TIM_Prescaler = psc - 1;
     TIM_TimeBaseInitStructure.TIM_RepetitionCounter = 0;
-    TIM_TimeBaseInit(TIM3, &TIM_TimeBaseInitStructure);
+    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseInitStructure);
 
     TIM_OCStructInit(&TIM_OCInitStructure);
     TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
@@ -42,88 +30,45 @@ void PWM_Init(u32 arr, u32 psc)
     TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
     TIM_OCInitStructure.TIM_Pulse = 0;
 
-    TIM_OC1Init(TIM3, &TIM_OCInitStructure);  // PA6
-    TIM_OC2Init(TIM3, &TIM_OCInitStructure);  // PA7
+    TIM_OC1Init(TIM2, &TIM_OCInitStructure);  // PA0
+    TIM_OC2Init(TIM2, &TIM_OCInitStructure);  // PA1
 
-    TIM_Cmd(TIM3, ENABLE);
+    TIM_Cmd(TIM2, ENABLE);
+    TIM_ARRPreloadConfig(TIM2, ENABLE);
+
 }
 
-// ===================== 角度设置函数 =====================
-// 水平：PA7 (TIM3_CH2)
-void Servo_SetAngle_H(float angle_deg)
+/**
+ * @brief 设置风扇转速（输入百分比 0~100）
+ * @param ch 通道FAN_CH1/FAN_CH2
+ * @param percent 占空比百分比 0~100
+ */
+void Fan_SetSpeed(FanChannel_t ch, uint8_t percent)
 {
+    uint16_t ccrVal;
+    // 限幅，防止超出0~100范围
+    if(percent > 100)
+        percent = 100;
+    
+    // 百分比换算为CCR寄存器值：percent/100 * PWM_MAX_CCR
+    ccrVal = (uint16_t)((uint32_t)percent * PWM_MAX_CCR / 100U);
 
-    uint16_t pulse;
-
-
-    if(angle_deg<0)
-
-        angle_deg=0;
-
-
-    if(angle_deg>270)
-
-        angle_deg=270;
-
-
-    pulse=
-    500+
-    angle_deg*7.407;
-
-
-
-    TIM_SetCompare2(
-    TIM3,
-    pulse);
-
-
-    current_angle_h=angle_deg;
-
+    switch(ch)
+    {
+        case FAN_CH1:
+            TIM_SetCompare1(TIM2, ccrVal);
+            break;
+        case FAN_CH2:
+            TIM_SetCompare2(TIM2, ccrVal);
+            break;
+        default: break;
+    }
 }
-
-
-// 垂直：PA6 (TIM3_CH1)
-void Servo_SetAngle_V(float angle_deg)
-{
-
-
-    uint16_t pulse;
-
-
-    if(angle_deg<0)
-
-        angle_deg=0;
-
-
-
-    if(angle_deg>180)
-
-        angle_deg=180;
-
-
-
-    pulse=
-    500+
-    angle_deg*11.11;
-
-
-
-    TIM_SetCompare1(
-    TIM3,
-    pulse);
-
-
-
-    current_angle_v=angle_deg;
-
-
-}
-
 
 // ===================== 初始化入口 =====================
-void Servo_Init(void)
+void Fan_Init(void)
 {
-    PWM_Init(20000, 72);     // 20ms周期，50Hz（72MHz时钟）
-    Servo_SetAngle_H(135.0f);
-    Servo_SetAngle_V(125.0f);
+    PWM_Init(40, 72);    
+    Fan_SetSpeed(FAN_CH1, 0);
+    Fan_SetSpeed(FAN_CH2, 0);
 }

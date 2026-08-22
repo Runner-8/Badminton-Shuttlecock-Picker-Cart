@@ -132,13 +132,12 @@ int max_objs)
           count<max_objs)
     {
         if(sscanf(token,
-        "%7[^,],%f,%f,%d,%d,%f",
+        "%7[^,],%f,%f,%d,%d",
         objs[count].label,
         &objs[count].cx,
         &objs[count].cy,
         &objs[count].w,
-        &objs[count].h,
-        &objs[count].score)==6)
+        &objs[count].h)==5)
         {
             count++;
         }
