@@ -6,24 +6,13 @@
 /************************************************
 * 全局变量
 ************************************************/
-volatile float g_threshold = 30.0f;
-volatile uint8_t g_cruise_enabled = 0;
-volatile uint8_t g_led_enabled = 0;
-volatile uint8_t g_auto_run = 0;
-volatile uint8_t g_auto_back = 0;
+volatile uint8_t g_suction = 0;
 volatile uint8_t g_auto_arrived = 0;
 volatile uint8_t g_mode = 0;
 volatile uint8_t g_car_state = CAR_STOP;
 uint8_t g_rx_buffer[BT_RX_BUF_SIZE];
 uint8_t g_rx_index = 0;
-uint8_t g_frame_ready = 0;  // 帧接收完成标志
-
-//float current_weight = 0.0f;
-//static uint32_t last_weight_check_time = 0;
-//static uint32_t weight_below_start_time = 0;
-//static uint8_t is_auto_moving = 0;
-//static uint32_t auto_move_start_time = 0;
-
+//uint8_t g_frame_ready = 0;  // 帧接收完成标志
 volatile ReturnState_t g_return_state = RETURN_IDLE;
 volatile uint8_t turn_direction;
 volatile uint32_t g_rx_timeout;
@@ -106,7 +95,7 @@ void BT_SendString(char *str)
 *长度=命令+数据+校验
 *
 ************************************************/
-void BT_SendFrame(uint8_t cmd, uint8_t *data, uint8_t data_len)
+void BT_SendFrame(uint8_t cmd, volatile uint8_t *data, uint8_t data_len)
 {
     uint8_t frame[32];
     uint8_t idx = 0;
@@ -225,6 +214,11 @@ static void ExecuteCommand(uint8_t cmd, uint8_t *data, uint8_t data_len)
         case CMD_STOP:
             g_car_state = CAR_STOP;
             break;
+        case CMD_SUCK:
+            if (data_len == 1) {
+                g_suction = data[0] ? 1 : 0;
+			}
+            break;
 		case CMD_MODESWITCH:
             if (data_len == 1) {
                 g_mode = data[0] ? 1 : 0;
@@ -263,82 +257,3 @@ void BT_ProcessReceivedData(void)
         memset((uint8_t*)g_rx_buffer, 0, BT_RX_BUF_SIZE);
 	}
 }
-
-/************************************************
-*
-* 重量检测
-* 每5秒获取一下重量数， 每15秒与阈值进行比较.
-*
-************************************************/
-// void Weight_Monitor(void)
-// {
-//     uint32_t tick = get_tick();
-//     static uint8_t last_alert_sent = 0;
-
-//     if (tick - last_weight_check_time >= 3000) {
-//         last_weight_check_time = tick;
-//         current_weight = Get_Weight();
-//         BT_SendFrame(CMD_SEND_THRESHOLD, (uint8_t *)&current_weight, 4);
-
-//         // ===== 超重检测（最高优先级） =====
-//         if (current_weight >= g_threshold) {
-//             // 1. 如果正在自动移动，立即中断并停车
-//             if (is_auto_moving) {
-//                 is_auto_moving = 0;
-//                 g_car_state = CAR_STOP;
-//             }
-//             weight_below_start_time = 0;
-
-//             // 2. 发送超重标志（仅一次）
-//             if (!last_alert_sent) {
-//                 BT_SendFrame(CMD_SEND_FLAG, NULL, 0);
-//                 last_alert_sent = 1;
-//             }
-
-// 			// ★★★ 触发返航的条件 ★★★
-//             // 只要当前状态是“空闲”，立即触发返航
-//             if (g_return_state == RETURN_IDLE) {
-//                 g_return_state = RETURN_BACKING;  // 切换为返航中
-//             }
-//         } 
-//         else { // 重量低于阈值
-//             // 清除超重标志，以便下次超重再发送
-//             last_alert_sent = 0;
-
-//             // 如果当前正在返航或已到达，则立即停止并重置状态
-//             if (g_return_state != RETURN_IDLE) {
-//                 g_return_state = RETURN_IDLE;
-//                 g_car_state = CAR_STOP;
-//                 turn_direction = 0;   // 清除转向保持
-//                 // 可选：发送状态信息
-//                 // BT_SendString("Return cancelled\r\n");
-//             }
-
-//             // ===== 自动移动功能（仅当 g_auto_run 开启） =====
-//             if (g_auto_run) {
-//                 if (weight_below_start_time == 0) {
-//                     weight_below_start_time = tick;
-//                 } else if (tick - weight_below_start_time >= 15000 && !is_auto_moving) {
-//                     is_auto_moving = 1;
-//                     auto_move_start_time = tick;
-//                     g_car_state = CAR_FORWARD;
-//                 }
-//             } else {
-//                 weight_below_start_time = 0;
-//                 if (is_auto_moving) {
-//                     is_auto_moving = 0;
-//                     g_car_state = CAR_STOP;
-//                 }
-//             }
-//         }
-//     }
-
-//     // ===== 自动移动执行（前进1秒后停止） =====
-//     if (is_auto_moving) {
-//         if (tick - auto_move_start_time >= 1000) {
-//             is_auto_moving = 0;
-//             g_car_state = CAR_STOP;
-//             weight_below_start_time = tick;
-//         }
-//     }
-// }

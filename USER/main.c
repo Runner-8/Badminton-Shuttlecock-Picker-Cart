@@ -20,8 +20,8 @@
 *后期打墙标定
 *
 ************************************************/
-#define LASER_OFFSET_X       0
-#define LASER_OFFSET_Y       0
+#define LASER_OFFSET_X       14 //0
+#define LASER_OFFSET_Y       62 //0
 
 /************************************************
 *
@@ -46,7 +46,7 @@
 *大范围死区
 *
 ************************************************/
-#define DEAD_X               12
+#define DEAD_X               16 //12
 #define DEAD_Y               12
 
 /************************************************
@@ -137,88 +137,11 @@ uint32_t timer_v = 0;
 * 红外引脚定义
 *
 ************************************************/
-#define IR_RIGHT 		GPIO_Pin_1
-#define IR_LEFT  		GPIO_Pin_0
-#define IR_CENTER 		GPIO_Pin_3
+#define IR_RIGHT 		GPIO_Pin_14
+#define IR_LEFT  		GPIO_Pin_8
+#define IR_CENTER 		GPIO_Pin_15
 
-//ON_TIME / (ON_TIME + OFF_TIME)
-
-// 直行动作（前进/后退）的间歇参数
-#define MOVE_ON_TIME    50   // 前进/后退 持续运动时间 (ms)
-#define MOVE_OFF_TIME   50   // 前进/后退 停止时间 (ms)
-
-// 转向动作（左转/右转）的间歇参数（转得慢一点，更稳
-#define TURN_ON_TIME    50   // 转向持续运动时间 (ms)
-#define TURN_OFF_TIME   150  // 转向停止时间 (ms)
-
-//static uint8_t actual_state = CAR_STOP;   // 当前实际输出状态
-//static uint32_t last_toggle_time = 0;
-//static uint8_t speed_step = 0;            // 0: 运动阶段, 1: 停止阶段
-//static uint32_t turn_start_time = 0;
-
-
-/************************************************
-*
-* 自动巡检
-*
-************************************************/
-//void Search_Control(void)
-//{
-//	uint32_t now = get_tick();
-
-//    switch (search_step) {
-//        case 0:
-//			if (now - last_v_time < SEARCH_V_DELAY)
-//				return;
-//			last_v_time = now;
-
-//            search_v = SEARCH_V_CENTER;
-//            search_step = 1;
-//            break;
-
-//        case 1:
-//			if (now - last_v_time < SEARCH_V_DELAY)
-//				return;
-//			last_v_time = now;
-
-//            search_v = SEARCH_V_CENTER - SEARCH_V_OFFSET;
-//            search_step = 2;
-//            break;
-
-//        case 2:
-//			if (now - last_v_time < SEARCH_V_DELAY)
-//				return;
-//			last_v_time = now;
-
-//            search_v = SEARCH_V_CENTER;
-//            search_step = 3;
-//            break;
-
-//        case 3:
-//			if (now - last_v_time < SEARCH_V_DELAY)
-//				return;
-//			last_v_time = now;
-
-//            search_v = SEARCH_V_CENTER + SEARCH_V_OFFSET;
-//            search_step = 4;
-//            break;
-
-//        case 4:
-//			if (now - last_h_time < SEARCH_V_DELAY)
-//				return;
-//			last_h_time = now;
-
-//            search_h += SEARCH_H_STEP;
-//            if (search_h >= SEARCH_H_END) {
-//                search_h = SEARCH_H_START;
-//            }
-//            search_step = 0;
-//            break;
-//    }
-
-//    Servo_SetAngle_H(search_h);
-//    Servo_SetAngle_V(search_v);
-//}
+static uint32_t turn_start_time = 0;
 
 /************************************************
 *
@@ -331,8 +254,8 @@ static float filtered_vx = 0;
 static float filtered_vy = 0;
 
 // 全局/静态变量，放在函数外部
-#define DEAD_x 20
-#define DEAD_y 20
+#define DEAD_BIG_X 24 //20
+#define DEAD_BIG_Y 20 //20
 // 目标位置变化阈值，根据视觉像素调试
 #define DELTA_THRESH 8
 
@@ -356,7 +279,7 @@ void Track(Object_t *obj)
         stop_locked = 1;                    // 进入精准范围，锁定停止
     }
     if (stop_locked) {
-        if (fabs(err_x) > DEAD_x || fabs(err_y) > DEAD_y) {
+        if (fabs(err_x) > DEAD_BIG_X || fabs(err_y) > DEAD_BIG_Y) {
             stop_locked = 0;                // 目标跑出大死区，解锁
         } else {
             Motor_SetSpeed(0, 0, 0, 0);     // 保持停止
@@ -370,7 +293,7 @@ void Track(Object_t *obj)
         err_y = 0;
 
 
-    //v = KP * err * (1 + 0.01 * abs(err)) 非线性比例计算，误差越大，速度越快，误差越小，速度越慢
+    //方案2：v = KP * err * (1 + 0.01 * abs(err)) 非线性比例计算，误差越大，速度越快，误差越小，速度越慢
     // 3. 比例控制：速度 = 系数 × 误差
     vx = -KP_Y * err_y;
     vy = KP_X * err_x;
@@ -422,7 +345,7 @@ void Car(float new_target_x, float new_target_y)
     err_x = new_target_x - (IMAGE_CENTER_X + LASER_OFFSET_X);  // 你自行替换成真实误差计算：err_x = target_x - center_x
     err_y = new_target_y - (IMAGE_CENTER_Y + LASER_OFFSET_Y);  // err_y = target_y - center_y
 
-    if(err_x > DEAD_x)
+    if(err_x > DEAD_BIG_X)
     {
         //g_car_state = CAR_RIGHT;
 #if MOTOR_MODE_PWM
@@ -432,7 +355,7 @@ void Car(float new_target_x, float new_target_y)
 #endif
         //printf("right\r\n");
     }
-    else if(err_x < -DEAD_x)
+    else if(err_x < -DEAD_BIG_X)
     {
         //g_car_state = CAR_LEFT;
 #if MOTOR_MODE_PWM
@@ -444,7 +367,7 @@ void Car(float new_target_x, float new_target_y)
     }
     else
     {
-        if(err_y > DEAD_y)
+        if(err_y > DEAD_BIG_Y)
         {
             //g_car_state = CAR_BACKWARD;
 
@@ -455,7 +378,7 @@ void Car(float new_target_x, float new_target_y)
 #endif
             //printf("backward\r\n");
         }
-        else if(err_y < -DEAD_y)
+        else if(err_y < -DEAD_BIG_Y)
         {
             //g_car_state = CAR_FORWARD;
 #if MOTOR_MODE_PWM
@@ -484,8 +407,9 @@ uint8_t Check_Lock(Object_t *obj)
     int dx;
     int dy;
 
-    dx = abs(obj->cx - IMAGE_CENTER_X);
-    dy = abs(obj->cy - IMAGE_CENTER_Y);
+    // 使用与 Track() 相同的有效中心：图像中心 + 激光偏移
+    dx = abs((obj->cx + TARGET_OFFSET_X) - (IMAGE_CENTER_X + LASER_OFFSET_X));
+    dy = abs((obj->cy + TARGET_OFFSET_Y) - (IMAGE_CENTER_Y + LASER_OFFSET_Y));
 
     if (dx < DEAD_X && dy < DEAD_Y) {
         lock_count++;
@@ -505,57 +429,32 @@ uint8_t Check_Lock(Object_t *obj)
 ************************************************/
 
 
-// void Car_Control(uint8_t state)
-// {
-//     switch (state) {
-//         case CAR_FORWARD:
-//             Motor_SetSpeed(80, 80, 80, 80);
-//             break;
-//         case CAR_BACKWARD:
-//             Motor_SetSpeed(-80, -80, -80, -80);
-//             break;
-//         case CAR_LEFT:
-//             Motor_SetSpeed(-80, -80, 80, 80);
-//             break;
-//         case CAR_RIGHT:
-//             Motor_SetSpeed(80, 80, -80, -80);
-//             break;
-//         case CAR_STOP:
-//         default:
-//             Motor_SetSpeed(0, 0, 0, 0);
-//             break;
-//     }
-// }
-/************************************************
-*
-* 自动巡检
-*
-************************************************/
-//void auto_cruise(Object_t obj)
-//{
-//	if (g_cruise_enabled) {
-//		if (Uart_GetFrameFlag()) {
-//			Uart_ClearFrameFlag();
-
-//			if (parse_frame(Uart_GetFrameData(), &obj, 1)) {
-//				system_state = TRACK_MODE;
-//				Track_Control(&obj);
-
-//				if (Check_Lock(&obj)) {
-//					Lock_LED(1);
-//				}
-//			} else {
-//				system_state = SEARCH_MODE;
-//				lock_count = 0;
-//				Lock_LED(0);
-//			}
-//	}
-
-//		if (system_state == SEARCH_MODE) {
-//			Search_Control();
-//		}
-//	}
-//}
+ void Car_Control(uint8_t state)
+ {
+     switch (state) {
+         case CAR_FORWARD:
+             Motor_SetSpeed(80, 80, 80, 80);
+			   //printf("forward\r\n");
+             break;
+         case CAR_BACKWARD:
+             Motor_SetSpeed(-80, -80, -80, -80);
+		       //printf("backward\r\n");
+             break;
+         case CAR_LEFT:
+             Motor_SetSpeed(-100, -100, 100, 100);
+			   //printf("left\r\n");
+             break;
+         case CAR_RIGHT:
+             Motor_SetSpeed(100, 100, -100, -100);
+			   //printf("right\r\n");
+             break;
+         case CAR_STOP:
+         default:
+             Motor_SetSpeed(0, 0, 0, 0);
+			   //printf("stop\r\n");
+             break;
+     }
+ }
 
 /************************************************
 *
@@ -631,76 +530,48 @@ uint8_t Check_Lock(Object_t *obj)
 //    }
 //}
 
-/************************************************
-*
-* 小车速度控制
-*
-************************************************/
-#if MOTOR_MODE_PWM == 0
-void Speed_Control(void)
-{
-    uint32_t now = get_tick();
-    uint8_t target = g_car_state;          // 目标状态（由其他逻辑设置）
-    uint16_t on_time, off_time;
 
-    // 根据目标动作选择不同的间歇参数
-    if (target == CAR_FORWARD || target == CAR_BACKWARD) {
-        on_time = MOVE_ON_TIME;
-        off_time = MOVE_OFF_TIME;
-    } else if (target == CAR_LEFT || target == CAR_RIGHT) {
-        on_time = TURN_ON_TIME;
-        off_time = TURN_OFF_TIME;
-    } else {
-        // 停止状态：直接输出停止，重置状态机
-        if (actual_state != CAR_STOP) {
-            actual_state = CAR_STOP;
-            Car_Control(actual_state);
-            speed_step = 0;
-            last_toggle_time = now;
-        }
-        return;
-    }
+// void turntable_init(void)
+// {
+//     GPIO_InitTypeDef GPIO_InitStructure;
 
-    // 间歇控制
-    if (speed_step == 0) {  // 运动阶段
-        if (now - last_toggle_time >= on_time) {
-            last_toggle_time = now;
-            speed_step = 1;
-            actual_state = CAR_STOP;
-            Car_Control(actual_state);
-        } else {
-            if (actual_state != target) {
-                actual_state = target;
-                Car_Control(actual_state);
-            }
-        }
-    } else {  // 停止阶段
-        if (now - last_toggle_time >= off_time) {
-            last_toggle_time = now;
-            speed_step = 0;
-            actual_state = target;
-            Car_Control(actual_state);
-        } else {
-            if (actual_state != CAR_STOP) {
-                actual_state = CAR_STOP;
-                Car_Control(actual_state);
-            }
-        }
-    }
-}
-#endif
+//     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+//     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+//     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
+//     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+//     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_11;
+//     GPIO_Init(GPIOA, &GPIO_InitStructure);
+	
+//     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+//     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+//     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+//     GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+//     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+//     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+//     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
+//     GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+// 	GPIO_ResetBits(GPIOA, GPIO_Pin_11);
+// }
+
 /************************************************
 *
 *主函数
 *
 ************************************************/
+#define FUNC        1
 
-uint32_t time;
-uint8_t pwm_fan = 0;
+#if FUNC == 0
 
 int main(void)
 {
     Object_t obj;
+    uint8_t flag = 0;
+    uint8_t last_pin_state = 0;
+    uint8_t last_pb12 = 0;
+    uint8_t last_pb13 = 0;
 
 	//SystemInit();
 
@@ -715,6 +586,8 @@ int main(void)
     //Fan_Init();
 	//ir_gpio_init();
 
+    turntable_init();
+
 	//BT_SendString("hello\r\n");
 	printf("hello world\r\n");
 
@@ -722,26 +595,89 @@ int main(void)
 		//蓝牙数据解析于处理
 		//BT_ProcessReceivedData();
 
-		if (Uart_GetFrameFlag()) {
-			Uart_ClearFrameFlag();
+		// if (Uart_GetFrameFlag()) {
+		// 	Uart_ClearFrameFlag();
 
-			if (parse_frame(Uart_GetFrameData(), &obj, 1)) {
-				//printf("cx:%.1f, cy:%.1f\r\n", obj.cx, obj.cy);
-				// printf("label=%s cx=%.1f cy=%.1f w=%d h=%d\r\n",
-                // obj.label, obj.cx, obj.cy, obj.w, obj.h);
+		// 	if (parse_frame(Uart_GetFrameData(), &obj, 1)) {
+		// 		//printf("cx:%.1f, cy:%.1f\r\n", obj.cx, obj.cy);
+		// 		// printf("label=%s cx=%.1f cy=%.1f w=%d h=%d\r\n",
+        //         // obj.label, obj.cx, obj.cy, obj.w, obj.h);
 
-                Track(&obj);
-			}
-		}
+        //         Track(&obj);
+		// 	}
+		// }
 
-        // if(get_tick() - time > 5000)
-        // {
-        //     time = get_tick();
-        //     pwm_fan += 10;
-        //     if(pwm_fan > 100)
-        //         pwm_fan = 0;
-        //     Fan_SetSpeed(FAN_CH1, pwm_fan);
-        // }
+        uint8_t current_state = GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_12);
+        uint8_t pb12 = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_12);  // 读取 PB12（顶部红外）
+        uint8_t pb13 = GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_13);
+
+        if(last_pin_state && !current_state)
+        {
+            flag ^= 1;
+            delay_ms(20);
+        }
+        last_pin_state = current_state;
+
+        if(last_pb12 && !pb12)            // PB12 上升沿（0→1）
+        {
+            last_pb12 = 0;
+            delay_ms(20);
+            if(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_12) == Bit_RESET)
+            {
+                printf("PB12 IR Top Triggered!\r\n");
+                flag = 1;
+            }
+        }
+
+        if(last_pb13 && !pb13)            // PB13 上升沿（0→1）
+        {
+            last_pb13 = 0;
+            delay_ms(20);
+            if(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_13) == Bit_RESET)
+            {
+                printf("PB13 IR Funnel Triggered!\r\n");
+                flag = 0;
+            }
+        }
+
+        {
+            GPIO_ResetBits(GPIOA, GPIO_Pin_11);
+        }
+ 
+        if(last_pb12 && !pb12)
+        {
+            last_pb12 = 0;
+            delay_ms(20);
+            if(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_12) == Bit_RESET)
+            {
+                printf("PB12 IR Top Triggered!\r\n");
+                flag = 1;
+            }
+        }
+ 
+        if(last_pb13 && !pb13)
+        {
+            last_pb13 = 0;
+            delay_ms(20);
+            if(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_13) == Bit_RESET)
+            {
+                printf("PB13 IR Funnel Triggered!\r\n");
+                flag = 0;
+            }
+        }
+ 
+        if(pb12) last_pb12 = 1;
+        if(pb13) last_pb13 = 1;
+
+        if(flag)
+        {
+            GPIO_SetBits(GPIOA, GPIO_Pin_11);
+        }
+        else
+        {
+            GPIO_ResetBits(GPIOA, GPIO_Pin_11);
+        }
+
 
         // 小车运动
 		//Speed_Control();
@@ -749,9 +685,23 @@ int main(void)
     }
 }
 
-#define FUNC        0
 
-#if FUNC
+
+#else
+
+void System_Init(void);
+void ir_gpio_init(void);
+void turntable_gpio_init(void);
+void ManualMode_Run(void);
+void AutoMode_Run(Object_t *obj);
+uint8_t Collect_SubStateMachine(void);
+uint8_t IR_Top_Detected(void);
+uint8_t IR_Funnel_Detected(void);
+uint8_t Timer_Elapsed(uint32_t *start, uint32_t timeout_ms);
+void Fan_Stop(void);
+void Turntable_Rotate(void);
+uint8_t AllBucketsFull(void);
+void Patrol_Move(void);
 
 // ============ 状态定义 ============
 typedef enum {
@@ -760,190 +710,576 @@ typedef enum {
 } SystemMode_t;
 
 typedef enum {
-    AUTO_PATROL  = 0,
-    AUTO_TRACK   = 1,
-    AUTO_COLLECT = 2,
-    AUTO_RETURN  = 3
+    AUTO_NONE = 0,
+    AUTO_PATROL  = 1,
+    AUTO_TRACK   = 2,
+    AUTO_COLLECT = 3,
+    AUTO_RETURN  = 4
 } AutoTask_t;
 
 typedef enum {
-    COLLECT_APPROACH = 0,
-    COLLECT_SUCK_BOTH = 1,
-    COLLECT_DETECTED = 2,
-    COLLECT_SUCK_HORIZ = 3,
-    COLLECT_DROP = 4,
-    COLLECT_CHECK_BUCKET = 5,
-    COLLECT_ROTATE = 6,
-    COLLECT_DONE = 7
+    COLLECT_SUCK_BOTH = 0,
+    COLLECT_DETECTED = 1,
+    COLLECT_SUCK_HORIZ = 2,
+    COLLECT_DROP = 3,
+    COLLECT_CHECK_BUCKET = 4,
+    COLLECT_ROTATE = 5,
+    COLLECT_DONE = 6
 } CollectSubState_t;
 
 // ============ 全局状态变量 ============
 AutoTask_t        g_auto_task  = AUTO_PATROL;   // 默认巡检
-CollectSubState_t g_collect_st = COLLECT_APPROACH;
+CollectSubState_t g_collect_st = COLLECT_SUCK_BOTH;
 
-uint8_t g_bucket_count[3] = {0};  // 三个桶的球数
-uint8_t g_current_bucket  = 0;    // 当前桶索引
-#define BALLS_PER_BUCKET   5       // 每桶容量
+uint8_t g_bucket_count[3] = {0};    // 三个桶的球数
+uint8_t g_current_bucket  = 0;      // 当前桶索引
+#define BALLS_PER_BUCKET   2        // 每桶容量
+#define BUCKET_COUNT       3
+
+// ============ 定时器相关 ============
+static uint32_t track_lost_time = 0;      // 跟踪丢失开始时间
+static uint32_t collect_start_time = 0;   // 吸取阶段开始时间
+
+/************************************************
+* 定时参数
+************************************************/
+#define TRACK_TIMEOUT_MS            3000          // 跟踪超时 3秒
+#define COLLECT_TOP_TIMEOUT_MS      3000          // 吸取顶部超时 3秒
+#define COLLECT_FUNNEL_TIMEOUT_MS   5000          // 吸取漏斗超时 5秒
+
+uint8_t patrol_step = 0;
+uint32_t patrol_timer = 0;
+
+uint8_t g_returning = 0;
+
+
+// ============ 硬件初始化 ============
+void ir_gpio_init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12 | GPIO_Pin_13;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14 | GPIO_Pin_15;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+}
+
+void turntable_gpio_init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_11;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+	
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	GPIO_ResetBits(GPIOA, GPIO_Pin_11);
+}
+
+static uint8_t read_ir_pin(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
+{
+    uint8_t v1 = GPIO_ReadInputDataBit(GPIOx, GPIO_Pin);
+    uint8_t v2 = GPIO_ReadInputDataBit(GPIOx, GPIO_Pin);
+    uint8_t v3 = GPIO_ReadInputDataBit(GPIOx, GPIO_Pin);
+    return (v1 & v2) | (v2 & v3) | (v1 & v3);
+}
+
+uint8_t Return_ToBase(void)
+{
+    // 红外循迹返航：左红外=PB0, 右红外=PB1, 中间红外=PA3
+
+    uint8_t left, right, center;
+    uint32_t now = get_tick();
+ 
+    left   = read_ir_pin(GPIOB, GPIO_Pin_14);   // PB14 左红外
+    right  = read_ir_pin(GPIOA, GPIO_Pin_8);   // PB8 右红外
+    center = read_ir_pin(GPIOB, GPIO_Pin_15);    // PA15 中间红外
+
+    //printf("left: %d, right: %d, center: %d\r\n", left, right, center);
+ 
+    // 1. 中心触发 -> 到达基地，停车
+    if (center == 1) {
+        g_car_state = CAR_STOP;
+        turn_direction = 0;
+        Car_Control(g_car_state);
+        return 1;
+    }
+ 
+    // 2. 转向中且未到最小转向时间，保持
+    if (turn_direction != 0 && (now - turn_start_time < 160)) {
+        g_car_state = (turn_direction == 1) ? CAR_RIGHT : CAR_LEFT;
+        Car_Control(g_car_state);
+        return 0;
+    }
+ 
+    // 3. 转向时间到，重新评估
+    turn_direction = 0;
+ 
+    if (left == 1 && right == 1) {
+        g_car_state = CAR_BACKWARD;
+    }
+    else if (left == 1 && right == 0) {
+        g_car_state = CAR_RIGHT;
+        turn_direction = 1;
+        turn_start_time = now;
+    }
+    else if (left == 0 && right == 1) {
+        g_car_state = CAR_LEFT;
+        turn_direction = 2;
+        turn_start_time = now;
+    }
+    else {
+        g_car_state = CAR_RIGHT;
+        turn_direction = 1;
+        turn_start_time = now;
+    }
+ 
+    Car_Control(g_car_state);
+    return 0;
+}
+
+void System_Init(void)
+{
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+    SysTick_Init();
+    Usart1_Init(115200);
+	Usart3_Init(9600);
+
+    Motor_Init();
+    Fan_Init();
+    ir_gpio_init();
+    turntable_gpio_init();
+	Turntable_Rotate();
+
+    Motor_SetSpeed(0, 0, 0, 0);
+    
+    printf("System Init OK\r\n");
+    //BT_SendString("System Ready\r\n");
+}
+
+void ManualMode_Run(void)
+{
+    if (g_returning) {
+        // 返航中，持续调用直到到达
+        if (Return_ToBase()) {
+            g_returning = 0;
+            Motor_SetSpeed(0, 0, 0, 0);
+            Fan_Stop();
+            for (int i = 0; i < BUCKET_COUNT; i++) {
+                g_bucket_count[i] = 0;
+            }
+            g_current_bucket = 0;
+            patrol_step = 0;
+            stop_locked = 0;
+            track_lost_time = 0;
+            printf("return Complete!\r\n");
+        }
+
+    } else if (g_suction) {
+        //printf("suction on\r\n");
+		Car_Control(g_car_state);
+		
+        if (Collect_SubStateMachine()) {
+			g_car_state = CAR_STOP;
+            g_suction = 0;
+            //在添加一个数据上报的功能
+            BT_SendFrame(CMD_SUCK, &g_suction, 1);
+            //printf("suction update\r\n");
+            if (AllBucketsFull()) {
+                g_returning = 1;
+                turn_direction = 0;
+               // printf("full!\r\n");
+            }
+        }
+    } else {
+        //printf("suction off\r\n");
+        Fan_Stop();
+        g_collect_st = COLLECT_SUCK_BOTH;
+        //复位各个标志位
+        Car_Control(g_car_state);
+    }
+}
+
+//uint32_t time_aptrol = 0;
+
+// ============ 自动模式：任务调度 ============
+void AutoMode_Run(Object_t *obj)
+{
+    uint8_t task_done = 0;
+
+    switch (g_auto_task)
+    {
+        case AUTO_NONE:
+            break;
+
+        case AUTO_PATROL:
+            //自动巡检时开启风扇，保持转速20%PWM低速转动
+            Fan_SetSpeed(FAN_CH1, 50);
+            Fan_SetSpeed(FAN_CH2, 50);
+
+            // 检查是否有新视觉帧
+            if (Uart_GetFrameFlag()) {
+                //printf("Uart_GetFrameFlag\r\n");
+                Uart_ClearFrameFlag();
+                if (parse_frame(Uart_GetFrameData(), obj, 1)) {
+                    Motor_SetSpeed(0, 0, 0, 0);
+                    g_auto_task = AUTO_TRACK;
+                    track_lost_time = 0;
+                    stop_locked = 0; 
+                    break;
+                }
+            } else {
+                Patrol_Move();
+            }
+            break;
+
+        case AUTO_TRACK:
+            if (Uart_GetFrameFlag()) {
+                //printf("Uart_GetFrameFlag\r\n");
+                Uart_ClearFrameFlag();
+                if (parse_frame(Uart_GetFrameData(), obj, 1)) {
+                    Track(obj);
+                    track_lost_time = 0;
+
+                    if (Check_Lock(obj)) {
+                        Motor_SetSpeed(0, 0, 0, 0);
+                        g_auto_task = AUTO_COLLECT;
+                        g_collect_st = COLLECT_SUCK_BOTH;
+                        collect_start_time = 0;
+                        //printf("Collect Start\r\n");
+						//time_aptrol = 0;
+                    }
+                } else {
+                    // 解析失败，检查超时
+                    if (Timer_Elapsed(&track_lost_time, TRACK_TIMEOUT_MS)) {
+                        g_auto_task = AUTO_PATROL;
+                        stop_locked = 0;
+                        //printf("Track Timeout0\r\n");
+                    }
+                }
+            } else {
+                if (Timer_Elapsed(&track_lost_time, TRACK_TIMEOUT_MS)) {
+                    g_auto_task = AUTO_PATROL;
+                    stop_locked = 0;
+                    //printf("Track Timeout1\r\n");
+                } else {
+                    Track(obj);
+                }
+            }
+            break;
+
+        case AUTO_COLLECT:
+            task_done = Collect_SubStateMachine();
+            if (task_done) {
+                Motor_SetSpeed(0, 0, 0, 0);
+				Fan_Stop();
+				//time_aptrol = 0;
+                if (AllBucketsFull()) {
+					Fan_Stop();
+                    g_auto_task = AUTO_RETURN;
+                    //return_state = 0;
+                    //printf("Collect Done\r\n");
+                } else {
+					// if (Timer_Elapsed(&time_aptrol, 4000)) {
+					// 	g_auto_task = AUTO_PATROL;
+					// 	patrol_step = 0;
+					// }
+
+                    Fan_Stop();
+                    delay_ms(20000);
+                    g_auto_task = AUTO_PATROL;
+					patrol_step = 0;
+                    //printf("Collect Timeout\r\n");
+                }
+            }
+            break;
+
+        case AUTO_RETURN:
+			//printf("return\r\n");
+            task_done = Return_ToBase();
+            if (task_done) {
+                Motor_SetSpeed(0, 0, 0, 0);
+                Fan_Stop();
+                // 切换到巡检模式，开始新一轮
+                for (int i = 0; i < BUCKET_COUNT; i++) {
+                    g_bucket_count[i] = 0;
+                }
+                g_current_bucket = 0;
+                g_auto_task = AUTO_NONE;
+                patrol_step = 0;
+                stop_locked = 0;
+                track_lost_time = 0;
+                printf("Mission Complete!\r\n");
+            }
+            break;
+    }
+}
+
+// ============ 巡检移动 ============
+void Patrol_Move(void)
+{
+    // 简单巡线：按固定轨迹移动（前进→右转→前进→右转，循环）
+    // 实际应结合巡线传感器或预设路径
+    uint32_t now = get_tick();
+
+    switch (patrol_step) {
+        case 0:  // 前进
+            Motor_SetSpeed(80, 80, 80, 80);
+            if (now - patrol_timer > 1500) {  // 前进2秒
+                patrol_timer = now;
+                patrol_step = 1;
+            }
+            break;
+        case 1:  // 右转
+            Motor_SetSpeed(100, 100, -100, -100);
+            if (now - patrol_timer > 1000) {   // 右转0.8秒
+                patrol_timer = now;
+                patrol_step = 2;
+            }
+            break;
+        case 2:  // 前进
+            Motor_SetSpeed(80, 80, 80, 80);
+            if (now - patrol_timer > 1500) {  // 前进2秒
+                patrol_timer = now;
+                patrol_step = 3;
+            }
+            break;
+        case 3:  // 左转
+            Motor_SetSpeed(-100, -100, 100, 100);
+            if (now - patrol_timer > 1000) {   // 左转0.8秒
+                patrol_timer = now;
+                patrol_step = 0;
+            }
+            break;
+    }
+}
+
+// ============ 吸取子状态机 ============
+uint8_t Collect_SubStateMachine(void)
+{
+    switch (g_collect_st)
+    {
+        case COLLECT_SUCK_BOTH:
+			//printf("fan start\r\n");
+            // 双风扇同速开启（垂直吸起）
+			//这个时间在这个地方置为0，代表着超时处理并不使用，风扇一直开启，知道球被吸起，触发红外为止
+			collect_start_time = 0;
+            Fan_SetSpeed(FAN_CH1, 60);   // 垂直风扇
+            Fan_SetSpeed(FAN_CH2, 90);   // 水平风扇（同速）
+            if (IR_Top_Detected()) {
+                collect_start_time = get_tick();
+                g_collect_st = COLLECT_DETECTED;
+                //printf("top\r\n");
+            } else if (Timer_Elapsed(&collect_start_time, COLLECT_TOP_TIMEOUT_MS)) {
+                // 超时，放弃当前球
+                Fan_Stop();
+                g_collect_st = COLLECT_DONE;
+                //printf("Collect Timeout1\r\n");
+            }
+            break;
+
+        case COLLECT_DETECTED:
+			//printf("switch speed\r\n");
+            // 球到达顶部，调速：垂直减速，水平加速
+            Fan_SetSpeed(FAN_CH1, 0);    // 垂直减速
+            Fan_SetSpeed(FAN_CH2, 80);   // 水平加速（横向吸入）
+            if (Timer_Elapsed(&collect_start_time, 200)) {
+                g_collect_st = COLLECT_SUCK_HORIZ;
+                //printf("Collect Timeout2\r\n");
+            }
+            break;
+
+        case COLLECT_SUCK_HORIZ:
+			//printf("collect_suck_horiz\r\n");
+            // 等待球横向吸入漏斗
+			//在这里置零会一直等待红外的信号
+            collect_start_time = 0;
+            if (IR_Funnel_Detected()) {
+                g_collect_st = COLLECT_DROP;
+                //printf("funnel\r\n");
+            } else if (Timer_Elapsed(&collect_start_time, COLLECT_FUNNEL_TIMEOUT_MS)) {
+                // 超时，放弃
+                Fan_Stop();
+                g_collect_st = COLLECT_DONE;
+                //printf("Collect Timeout3\r\n");
+            }
+            break;
+
+        case COLLECT_DROP:
+			//printf("collect_drop\r\n");
+            // 球落入桶中
+            Fan_Stop();
+            g_bucket_count[g_current_bucket]++;
+            g_collect_st = COLLECT_CHECK_BUCKET;
+		
+			// printf("M:%d,T:%d,B0:%d,B1:%d,B2:%d\r\n",
+			// 		g_mode,
+			// 		g_auto_task,
+			// 		g_bucket_count[0],
+			// 		g_bucket_count[1],
+			// 		g_bucket_count[2]);
+
+			BT_SendFrame(CMD_BALLCOUNTS, g_bucket_count, 3);
+            break;
+
+        case COLLECT_CHECK_BUCKET:
+			//printf("collect_check_bucket\r\n");
+            if (AllBucketsFull()) {
+                // 所有桶已满，直接完成（不再旋转）
+                g_collect_st = COLLECT_DONE;
+                //printf("Collect Done3\r\n");
+            } else {
+                if (g_bucket_count[g_current_bucket] >= BALLS_PER_BUCKET) {
+                    g_collect_st = COLLECT_ROTATE;
+                    //printf("Collect Rotate\r\n");
+                } else {
+                    g_collect_st = COLLECT_DONE;
+                    //printf("Collect Done4\r\n");
+                }
+            }
+            break;
+
+        case COLLECT_ROTATE:
+			delay_ms(1000);
+			//printf("collect_rotate\r\n");
+            Turntable_Rotate();
+            g_current_bucket++;
+            g_collect_st = COLLECT_DONE;
+            //printf("Collect Done5\r\n");
+            break;
+
+        case COLLECT_DONE:
+			//printf("colledt_done\r\n");
+            g_collect_st = COLLECT_SUCK_BOTH;
+            collect_start_time = 0;
+            //printf("Collect Done6\r\n");
+            return 1;  // 吸取任务完成
+    }
+    return 0;
+}
+
+
+// ============ 红外传感器读取 ============
+uint8_t IR_Top_Detected(void)
+{
+    // 吸取管顶部红外：检测到球返回1，否则0
+    // 根据实际传感器电平调整（有球=低电平）
+    //printf("IR Top Detected: %d\r\n", GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_12));
+    return (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_12) == Bit_SET);
+    
+}
+
+uint8_t IR_Funnel_Detected(void)
+{
+    // 漏斗处红外：检测到球掉落返回1
+    //printf("IR Funnel Detected: %d\r\n", GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_13));
+    return (GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_13) == Bit_SET);
+}
+
+// ============ 定时器工具 ============
+uint8_t Timer_Elapsed(uint32_t *start, uint32_t timeout_ms)
+{
+    if (*start == 0) {
+        *start = get_tick();
+        return 0;
+    }
+    return ((get_tick() - *start) >= timeout_ms);
+}
+
+// ============ 风扇控制 ============
+void Fan_Stop(void)
+{
+    Fan_SetSpeed(FAN_CH1, 0);
+    Fan_SetSpeed(FAN_CH2, 0);
+    //printf("Fan Stop\r\n");
+}
+ 
+// ============ 转盘控制 ============
+void Turntable_Rotate(void)
+{
+    GPIO_SetBits(GPIOA, GPIO_Pin_11);
+    delay_ms(50);
+
+    while(GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_12) == Bit_RESET);
+
+    while(GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_12) == Bit_SET);
+    delay_ms(30);
+
+    GPIO_ResetBits(GPIOA, GPIO_Pin_11);
+    delay_ms(200);
+    //printf("Turntable Rotate 44\r\n");
+}
+
+// ============ 桶满判断 ============
+uint8_t AllBucketsFull(void)
+{
+    return (g_bucket_count[0] >= BALLS_PER_BUCKET &&
+            g_bucket_count[1] >= BALLS_PER_BUCKET &&
+            g_bucket_count[2] >= BALLS_PER_BUCKET);
+}
+
+uint8_t last_mode = MODE_MANUAL;
+
+void Status_Reset(void)
+{
+    // 2. 模式切换：复位所有状态（保留桶计数和索引）
+    if (g_mode != last_mode) {
+        Motor_SetSpeed(0, 0, 0, 0);
+        Fan_Stop();
+        g_auto_task      = AUTO_PATROL;
+        g_collect_st     = COLLECT_SUCK_BOTH;
+        track_lost_time  = 0;
+        collect_start_time = 0;
+        stop_locked      = 0;
+        patrol_step      = 0;
+        patrol_timer     = 0;
+        //return_state     = 0;
+        g_suction        = 0;
+        g_car_state      = CAR_STOP;
+        last_mode        = g_mode;
+    }
+}
 
 // ============ 主函数 ============
 int main(void)
 {
     Object_t obj;
-    
+
     System_Init();       // 所有硬件初始化
-    
+	
     while (1)
     {
         // 1. 蓝牙数据处理（始终运行，接收模式切换指令）
         BT_ProcessReceivedData();
+
+		Status_Reset();
         
         // 2. 根据系统模式分发
         if (g_mode == MODE_MANUAL) {
-            ManualMode_Run();      // 手动模式：APP直接控制
+             ManualMode_Run();      // 手动模式：APP直接控制
         } else {
-            AutoMode_Run(&obj);    // 自动模式：任务状态机
+             AutoMode_Run(&obj);    // 自动模式：任务状态机
         }
-        
-        // 3. 状态同步到APP（蓝牙上报）
-        Status_ReportToApp();
+		
     }
-}
-
-void ManualMode_Run(void)
-{
-    Car_Control(g_car_state);
-}
-
-void AutoMode_Run(Object_t *obj)
-{
-    uint8_t task_done = 0;
-    
-    switch (g_auto_task)
-    {
-        // ============ 巡检 ============
-        case AUTO_PATROL:
-            // 先检查是否有新的视觉帧
-            if (Uart_GetFrameFlag()) {
-                Uart_ClearFrameFlag();
-                if (parse_frame(Uart_GetFrameData(), obj, 1)) {
-                    // 检测到球！立即切换状态
-                    g_auto_task = AUTO_TRACK;
-                }
-            }
-            // 没检测到球，继续巡线移动
-            Patrol_Move();
-            break;
-            
-        // ============ 跟踪 ============
-        case AUTO_TRACK:
-            // 先检查是否还有视觉帧
-            if (Uart_GetFrameFlag()) {
-                Uart_ClearFrameFlag();
-                if (parse_frame(Uart_GetFrameData(), obj, 1)) {
-                    // 持续跟踪
-                    Track(obj);
-                    
-                    // 判断是否到达吸取范围
-                    if (Check_Lock(obj)) {   // 目标在中心稳定N帧
-                        Motor_SetSpeed(0, 0, 0, 0);          // 停车
-                        g_auto_task = AUTO_COLLECT;  // ← 切换！
-                        g_collect_st = COLLECT_APPROACH;
-                    }
-                } else {
-                    // 丢失目标，回到巡检
-                    g_auto_task = AUTO_PATROL;
-                }
-            } else {
-                // 超时没收到帧，可能丢失目标
-                if (Track_Timeout()) {
-                    g_auto_task = AUTO_PATROL;  // ← 超时回巡检
-                }
-            }
-            break;
-            
-        // ============ 吸取 ============
-        case AUTO_COLLECT:
-            task_done = Collect_SubStateMachine();  // 子状态机内部处理
-            if (task_done) {
-                if (AllBucketsFull()) {
-                    g_auto_task = AUTO_RETURN;  // ← 三桶满，返航
-                } else {
-                    g_auto_task = AUTO_PATROL;  // ← 继续找球
-                }
-            }
-            break;
-            
-        // ============ 返航 ============
-        case AUTO_RETURN:
-            task_done = Return_ToBase();
-            if (task_done) {
-                Motor_Stop();
-                Fan_Stop();
-                // 任务全部完成，可以闪烁LED或上报APP
-            }
-            break;
-    }
-}
-
-
-uint8_t Collect_SubStateMachine(void)
-{
-    switch (g_collect_st)
-    {
-        case COLLECT_APPROACH:
-            // 微调位置
-            if (Approach_Ready()) {
-                g_collect_st = COLLECT_SUCK_BOTH;  // ← 内部转换
-            }
-            break;
-            
-        case COLLECT_SUCK_BOTH:
-            Fan_SetSpeed(FAN_CH1,  100);
-            Fan_SetSpeed(FAN_CH2, 80);
-            if (IR_Top_Detected()) {                // 红外检测到球到顶
-                g_collect_st = COLLECT_DETECTED;     // ← 内部转换
-            }
-            break;
-            
-        case COLLECT_DETECTED:
-            Fan_SetSpeed(FAN_CH1,  80);        // 垂直减速
-            Fan_SetSpeed(FAN_CH2, 100);      // 水平加速
-            if (Timer_Elapsed(500)) {               // 延时等球吸入
-                g_collect_st = COLLECT_SUCK_HORIZ;   // ← 内部转换
-            }
-            break;
-            
-        case COLLECT_SUCK_HORIZ:
-            if (IR_Funnel_Detected()) {             // 漏斗处红外检测
-                g_collect_st = COLLECT_DROP;         // ← 内部转换
-            }
-            break;
-            
-        case COLLECT_DROP:
-            Fan_Stop();
-            g_bucket_count[g_current_bucket]++;     // 计数+1
-            g_collect_st = COLLECT_CHECK_BUCKET;     // ← 内部转换
-            break;
-            
-        case COLLECT_CHECK_BUCKET:
-            if (g_bucket_count[g_current_bucket] >= BALLS_PER_BUCKET) {
-                g_collect_st = COLLECT_ROTATE;       // ← 桶满，旋转
-            } else {
-                g_collect_st = COLLECT_DONE;         // ← 桶未满，结束
-            }
-            break;
-            
-        case COLLECT_ROTATE:
-            Turntable_Rotate(1);
-            g_current_bucket++;
-            g_collect_st = COLLECT_DONE;             // ← 内部转换
-            break;
-            
-        case COLLECT_DONE:
-            g_collect_st = COLLECT_APPROACH;         // 重置子状态
-            return 1;  // ← 返回1告诉上层：吸取任务完成，可以切换大状态了
-    }
-    return 0;  // 还没完成，继续
 }
 
 #endif

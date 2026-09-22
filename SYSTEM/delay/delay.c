@@ -172,19 +172,19 @@ void delay_us(u32 nus)
 //nms<=0xffffff*8*1000/SYSCLK
 //SYSCLK单位为Hz,nms单位为ms
 //对72M条件下,nms<=1864 
-void delay_ms(u16 nms)
-{	 		  	  
-	u32 temp;		   
-	SysTick->LOAD=(u32)nms*fac_ms;				//时间加载(SysTick->LOAD为24bit)
-	SysTick->VAL =0x00;							//清空计数器
-	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk ;	//开始倒数  
-	do
-	{
-		temp=SysTick->CTRL;
-	}while((temp&0x01)&&!(temp&(1<<16)));		//等待时间到达   
-	SysTick->CTRL&=~SysTick_CTRL_ENABLE_Msk;	//关闭计数器
-	SysTick->VAL =0X00;       					//清空计数器	  	    
-} 
+// void delay_ms(u16 nms)
+// {	 		  	  
+// 	u32 temp;		   
+// 	SysTick->LOAD=(u32)nms*fac_ms;				//时间加载(SysTick->LOAD为24bit)
+// 	SysTick->VAL =0x00;							//清空计数器
+// 	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk ;	//开始倒数  
+// 	do
+// 	{
+// 		temp=SysTick->CTRL;
+// 	}while((temp&0x01)&&!(temp&(1<<16)));		//等待时间到达   
+// 	SysTick->CTRL&=~SysTick_CTRL_ENABLE_Msk;	//关闭计数器
+// 	SysTick->VAL =0X00;       					//清空计数器	  	    
+// } 
 #endif 
 
 
@@ -244,6 +244,7 @@ void delay_ms(u16 nms)
 
 
 volatile uint32_t g_systick = 0;
+volatile uint32_t delay = 0;
 
 // 配置1ms SysTick中断
 void SysTick_Init(void)
@@ -259,6 +260,10 @@ void SysTick_Init(void)
 
 void SysTick_Increment(void)
 {
+	if (0U != delay) {
+        delay--;
+    }
+
 	g_systick++;
 }
 
@@ -266,6 +271,14 @@ void SysTick_Increment(void)
 uint32_t get_tick(void)
 {
 	return g_systick;
+}
+
+void delay_ms(uint32_t count)
+{
+    delay = count;
+
+    while(0U != delay){
+    }
 }
 
 

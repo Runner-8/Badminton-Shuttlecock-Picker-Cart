@@ -12,13 +12,25 @@
 // 右后: TIM3 CH4(PB1) PWM,  IN1=PB8, IN2=PB9
 static const MotorConfig_t motor_cfg[4] = {
     // 左前轮
-    { TIM3, 1, GPIOA, GPIO_Pin_6,  GPIOA, GPIO_Pin_2, GPIOA, GPIO_Pin_3 },
+    
+	{ TIM3, 4, GPIOB, GPIO_Pin_1,  GPIOB, GPIO_Pin_5, GPIOB, GPIO_Pin_9 },
+	
+	
     // 左后轮
-    { TIM3, 2, GPIOA, GPIO_Pin_7,  GPIOA, GPIO_Pin_4, GPIOA, GPIO_Pin_5 },
+    
+	{ TIM3, 3, GPIOB, GPIO_Pin_0,  GPIOB, GPIO_Pin_6, GPIOB, GPIO_Pin_7 },
+	
+	
     // 右前轮
-    { TIM3, 3, GPIOB, GPIO_Pin_0,  GPIOB, GPIO_Pin_6, GPIOB, GPIO_Pin_7 },
+    
+	
+	{ TIM3, 2, GPIOA, GPIO_Pin_7,  GPIOA, GPIO_Pin_4, GPIOA, GPIO_Pin_5 },
+	
     // 右后轮
-    { TIM3, 4, GPIOB, GPIO_Pin_1,  GPIOB, GPIO_Pin_8, GPIOB, GPIO_Pin_9 }
+    
+	
+	{ TIM3, 1, GPIOA, GPIO_Pin_6,  GPIOA, GPIO_Pin_2, GPIOA, GPIO_Pin_3 },
+	
 };
 #else
 static const MotorConfig_t motor_cfg[4] = {
